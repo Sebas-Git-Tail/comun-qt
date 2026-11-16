@@ -204,16 +204,12 @@ void Actualizador::descargarEInstalar()
         "(Landroid/content/Context;)Ljava/lang/String;", contexto()).toString();
     const QString archivo = QDir(carpeta).filePath(disponible_.nombre);
     emit progreso(0, -1);
-    http::pedir(this, disponible_.url, [this, archivo](int codigo, const QByteArray &datos) {
-        if (codigo != 200 || datos.isEmpty()) {
+    // descargar() y no pedir(): pedir() pasa el cuerpo por un String de Java y el APK llegaba roto
+    // («error durante el análisis del paquete»)
+    http::descargar(this, disponible_.url, archivo, [this, archivo](int codigo) {
+        if (codigo != 200) {
             ocupado_ = false;
             emit fallo(tr("No se pudo descargar (código %1).").arg(codigo));
-            return;
-        }
-        QSaveFile salida(archivo);
-        if (!salida.open(QIODevice::WriteOnly) || salida.write(datos) != datos.size() || !salida.commit()) {
-            ocupado_ = false;
-            emit fallo(tr("No se pudo guardar el archivo descargado."));
             return;
         }
         instalar(archivo);
