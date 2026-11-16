@@ -28,7 +28,10 @@ namespace apps {
 namespace {
 #if defined(Q_OS_ANDROID)
 const char *const CLASE_JAVA = "com/sebastian/comun/Instalador";
-jobject contexto() { return QNativeInterface::QAndroidApplication::context().object<jobject>(); }
+// Devuelve el QJniObject y no el jobject: si se devolviera context().object<jobject>(), el QJniObject
+// temporal se destruye al salir de la función, libera la referencia y Java recibe un puntero muerto
+// (SIGSEGV en Instalador.version al abrir «Apps y actualizaciones»).
+QJniObject contexto() { return QNativeInterface::QAndroidApplication::context(); }
 #endif
 } // namespace
 
@@ -61,7 +64,7 @@ QVersionNumber versionInstalada(const InfoApp &app, bool esEstaApp)
 #if defined(Q_OS_ANDROID)
     if (!app.paqueteAndroid.isEmpty())
         v = versionDeTexto(QJniObject::callStaticObjectMethod(CLASE_JAVA, "version",
-            "(Landroid/content/Context;Ljava/lang/String;)Ljava/lang/String;", contexto(),
+            "(Landroid/content/Context;Ljava/lang/String;)Ljava/lang/String;", contexto().object<jobject>(),
             QJniObject::fromString(app.paqueteAndroid).object<jstring>()).toString());
 #elif defined(Q_OS_WIN)
     if (!app.appIdWindows.isEmpty()) {
@@ -201,7 +204,7 @@ void Actualizador::descargarEInstalar()
 #ifdef Q_OS_ANDROID
     // El APK va a la caché de la app, que es lo que comparte el FileProvider (res/xml/rutas_archivos.xml)
     const QString carpeta = QJniObject::callStaticObjectMethod(CLASE_JAVA, "carpeta",
-        "(Landroid/content/Context;)Ljava/lang/String;", contexto()).toString();
+        "(Landroid/content/Context;)Ljava/lang/String;", contexto().object<jobject>()).toString();
     const QString archivo = QDir(carpeta).filePath(disponible_.nombre);
     emit progreso(0, -1);
     // descargar() y no pedir(): pedir() pasa el cuerpo por un String de Java y el APK llegaba roto
@@ -258,7 +261,7 @@ void Actualizador::instalar(const QString &archivo)
 #if defined(Q_OS_ANDROID)
     emit mensaje(tr("Abriendo el instalador de Android…"));
     QJniObject::callStaticMethod<void>(CLASE_JAVA, "instalar", "(Landroid/content/Context;Ljava/lang/String;)V",
-        contexto(), QJniObject::fromString(archivo).object<jstring>());
+        contexto().object<jobject>(), QJniObject::fromString(archivo).object<jstring>());
     ocupado_ = false;
     emit instalado(version);
 #elif defined(Q_OS_WIN)
