@@ -1,7 +1,8 @@
 # comun-qt: código que comparten los programas de Sebastián. Cada proyecto lo trae en su carpeta
 # comun/ con «git subtree» y lo agrega con add_subdirectory. Antes de add_subdirectory, cada uno
 # elige qué partes usa:
-#   COMUN_DESCARGAS  diálogo de pistas, consulta a yt-dlp y resumen de rsync  (los Manager)
+#   COMUN_DESCARGAS  diálogo de pistas, consulta a yt-dlp y resumen de rsync  (los Manager con Widgets)
+#   COMUN_DESCARGAS_NUCLEO  lo mismo sin el diálogo (sin Widgets): opciones de pistas, consulta y resumen  (Android-Manager, QML)
 #   COMUN_RED        pedidos HTTP, servidor.json y aviso de versiones nuevas  (Android/Windows-Manager, Bodrio)
 #   COMUN_SINC       sincronización cifrada PC ↔ celular                      (gestor de stock, ingresos y gastos)
 #   COMUN_APPS       actualizarse sola e instalar las otras apps (prende COMUN_RED)      (todas)
@@ -11,6 +12,7 @@ cmake_minimum_required(VERSION 3.21)
 project(comun-qt LANGUAGES C CXX)
 
 option(COMUN_DESCARGAS "Diálogo de pistas y yt-dlp" OFF)
+option(COMUN_DESCARGAS_NUCLEO "Consulta a yt-dlp y opciones de pistas, sin Widgets" OFF)
 option(COMUN_RED "Pedidos HTTP y configuración del servidor" OFF)
 option(COMUN_SINC "Sincronización PC ↔ celular" OFF)
 option(COMUN_APPS "Actualizarse sola e instalar las otras apps" OFF)
@@ -36,14 +38,26 @@ if(NOT CMAKE_CXX_STANDARD)
 endif()
 
 if(COMUN_DESCARGAS)
-    find_package(Qt6 REQUIRED COMPONENTS Widgets)
-    add_library(comun_descargas STATIC
-        descargas/DialogoPistas.cpp descargas/DialogoPistas.h descargas/DialogoPistas.ui
+    set(COMUN_DESCARGAS_NUCLEO ON)
+endif()
+
+if(COMUN_DESCARGAS_NUCLEO)
+    find_package(Qt6 REQUIRED COMPONENTS Core)
+    add_library(comun_descargas_nucleo STATIC
+        descargas/Pistas.h
+        descargas/OpcionesPistas.cpp descargas/OpcionesPistas.h
         descargas/ConsultaVideo.cpp descargas/ConsultaVideo.h
         descargas/ResumenSimulacion.cpp descargas/ResumenSimulacion.h)
+    target_include_directories(comun_descargas_nucleo PUBLIC descargas)
+    target_link_libraries(comun_descargas_nucleo PUBLIC Qt6::Core)
+endif()
+
+if(COMUN_DESCARGAS)
+    find_package(Qt6 REQUIRED COMPONENTS Widgets)
+    add_library(comun_descargas STATIC
+        descargas/DialogoPistas.cpp descargas/DialogoPistas.h descargas/DialogoPistas.ui)
     set_target_properties(comun_descargas PROPERTIES AUTOMOC ON AUTOUIC ON)
-    target_include_directories(comun_descargas PUBLIC descargas)
-    target_link_libraries(comun_descargas PUBLIC Qt6::Widgets)
+    target_link_libraries(comun_descargas PUBLIC comun_descargas_nucleo Qt6::Widgets)
 endif()
 
 if(COMUN_RED)
